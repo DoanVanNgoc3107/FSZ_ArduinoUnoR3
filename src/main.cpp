@@ -10,7 +10,7 @@
  *      • Vu Quang Minh   – 104310
  *      • Vu Hai Thanh    – 104328
  *
- *  VERSION : 4.1.27
+ *  VERSION : 4.1.27.2
  *  DATE    : 20/11/2025
  *
  *  DESCRIPTION:
@@ -35,146 +35,128 @@
  * ---------------------------------------------------------------
  */
 
-
-// ==== INCLUDES ====
 #include <Arduino.h>
 #include <Servo.h>
 
-// ==== DEFINES & CONSTANTS ====
-const int SERVO_PIN = 9; // Chân PWM cho Servo
-const int SENSOR_PIN = A0; // Chân Analog cho cảm biến quang
+// ==== CẤU HÌNH CHÂN (PINS) ====
+const int PIN_SERVO = 9;
+const int PIN_SENSOR_HEIGHT = A0; // Cảm biến đo chiều cao (Đặt trên cao)
+const int PIN_SENSOR_START  = A1; // Cảm biến phát hiện vật (Đặt thấp/Bắt đầu)
+
+// ==== CẤU HÌNH THÔNG SỐ ====
 const int BAUD_RATE = 9600;
 
-// --- CẤU HÌNH HỆ THỐNG (CẦN CALIBRATE THỰC TẾ) ---
-// Ngưỡng phân biệt Sáng/Tối.
-// Cần test: Mở Serial Monitor, xem giá trị khi có vật và không vật để đặt số này.
-// Ví dụ: Không vật = 800, Có vật = 200 -> Chọn 500.
-const int THRESHOLD_ON = 500;
+// Ngưỡng cảm biến hồng ngoại (Vật cản -> Giá trị thấp)
+// Bạn cần chỉnh biến trở trên cảm biến sao cho:
+// - Không vật: ~900-1000
+// - Có vật: < 100
+const int THRESHOLD = 500;
 
-const int ANGLE_PUSH = 70; // Góc gạt vật ra
-const int ANGLE_IDLE = 0; // Góc chờ
+// Góc Servo
+const int ANGLE_PUSH = 70;  // Góc gạt
+const int ANGLE_IDLE = 0;   // Góc chờ
 
-// Thời gian (ms) vật di chuyển từ cảm biến đến tay gạt Servo
-// Tùy tốc độ băng tải mà chỉnh số này (Ví dụ: 3000ms = 3 giây)
-const unsigned long TIME_TO_SERVO = 100;
+// THỜI GIAN TRÔI (Rất quan trọng)
+// Đây là thời gian vật đi từ Cảm biến đến Servo.
+// Nếu Servo gạt sớm quá -> Tăng số này lên.
+// Nếu Servo gạt trễ quá (vật đi qua rồi mới gạt) -> Giảm số này xuống.
+const unsigned long TIME_TO_TRAVEL = 0; // 2000ms = 2 giây (Ví dụ)
 
-Servo myServo; // Khởi tạo đối tượng servo
+Servo myServo;
 
-// Biến quản lý trạng thái thời gian (State Machine)
-unsigned long detectionStartTime = 0;
-bool isProcessing = false; // Trạng thái: True = Đang theo dõi vật, False = Rảnh
+// Trạng thái hệ thống
+bool objectDetected = false;
+bool isTallObject = false;
+unsigned long timeDetection = 0;
+bool waitingForServo = false;
 
 // ==== FUNCTION PROTOTYPES ====
 void initSystem();
-int readSensorAverage(int pin);
-bool isObjectDetected(int sensorValue);
-void processConveyorSystem(int sensorValue);
+bool isSensorBlocked(int pin);
+void processSystem();
 
 // ========================================================
-// MAIN SETUP & LOOP
+// MAIN
 // ========================================================
-
-void setup()
-{
+void setup() {
     initSystem();
 }
 
-void loop()
-{
-    // 1. Đọc giá trị cảm biến (Đã lọc trung bình)
-    int currentVal = readSensorAverage(SENSOR_PIN);
-
-    // 2. Debug giá trị lên màn hình để canh chỉnh (Bỏ comment khi nạp code thật)
-    Serial.print("Analog: "); Serial.println(currentVal);
-
-    // 3. Chạy logic hệ thống
-    processConveyorSystem(currentVal);
+void loop() {
+    processSystem();
 }
 
 // ========================================================
 // IMPLEMENTATION
 // ========================================================
 
-void initSystem()
-{
+void initSystem() {
     Serial.begin(BAUD_RATE);
-    pinMode(SENSOR_PIN, INPUT);
-    myServo.attach(SERVO_PIN);
-    myServo.write(ANGLE_IDLE); // Về vị trí chờ ban đầu
-    Serial.println("--- SYSTEM READY ---");
-    Serial.println("Waiting for object...");
+    pinMode(PIN_SENSOR_HEIGHT, INPUT);
+    pinMode(PIN_SENSOR_START, INPUT);
+
+    myServo.attach(PIN_SERVO);
+    myServo.write(ANGLE_IDLE);
+
+    Serial.println("--- SYSTEM READY (2 SENSORS MODE) ---");
+    Serial.println("Waiting for product...");
 }
 
-/**
- * Đọc giá trị Analog trung bình cộng để chống nhiễu
- * @param pin Chân Analog cần đọc
- * @return Giá trị trung bình (0 - 1023)
- */
-int readSensorAverage(int pin)
-{
-    long sum = 0;
-    const int SAMPLES = 10;
-
-    for (int i = 0; i < SAMPLES; i++)
-    {
-        sum += analogRead(pin);
-        delay(2); // Delay cực nhỏ để ổn định dòng điện giữa các lần đọc
-    }
-
-    return static_cast<int>(sum / SAMPLES); // ép kiểu sang int
+// Hàm kiểm tra cảm biến (Logic: Giá trị < 500 là CÓ VẬT)
+bool isSensorBlocked(int pin) {
+    int val = analogRead(pin);
+    return (val < THRESHOLD);
 }
 
-/**
- * Kiểm tra xem có vật che cảm biến hay không
- * Logic: Quang trở bị che -> Tối -> Giá trị Analog GIẢM (Hoặc Tăng tùy mạch)
- * @param sensorValue Giá trị đọc được
- * @return true nếu phát hiện vật
- */
-bool isObjectDetected(int sensorValue)
-{
-    // Giả sử mạch phân áp: Che sáng -> Giá trị nhỏ đi
-    if (sensorValue < THRESHOLD_ON)
-    {
-        return true;
-    }
-    return false;
-}
-
-/**
- * Hàm xử lý logic chính (Core Logic)
- * Sử dụng millis() để không chặn luồng (Non-blocking)
- */
-void processConveyorSystem(int sensorValue)
-{
+void processSystem() {
     unsigned long currentMillis = millis();
 
-    // Part 1: Xử lý khi phát hiện vật
-    if (!isProcessing && isObjectDetected(sensorValue))
-    {
-        Serial.println(">> [DETECTED] Phat hien vat! Bat dau dem gio...");
+    // --- GIAI ĐOẠN 1: PHÁT HIỆN VẬT (Dùng cảm biến Start) ---
+    // Chỉ kiểm tra khi hệ thống đang rảnh (không trong thời gian chờ servo)
+    if (!waitingForServo) {
+        if (isSensorBlocked(PIN_SENSOR_START)) {
+            Serial.println(">> [1] Phat hien co vat di vao...");
 
-        detectionStartTime = currentMillis; // Lưu mốc thời gian
-        isProcessing = true; // Khóa hệ thống vào trạng thái xử lý
+            // Ngay khi phát hiện vật, kiểm tra ngay chiều cao
+            // (Giả sử 2 cảm biến đặt thẳng hàng nhau theo phương thẳng đứng)
+            delay(100); // Chờ 0.1s để vật đi vào ổn định hẳn dưới cảm biến
+
+            if (isSensorBlocked(PIN_SENSOR_HEIGHT)) {
+                Serial.println("   -> Phat hien: VAT CAO (Khong dat yeu cau) -> Se gat bo.");
+                isTallObject = true;
+            } else {
+                Serial.println("   -> Phat hien: VAT THAP (Dat yeu cau) -> Cho qua.");
+                isTallObject = false;
+            }
+
+            // Lưu thời gian bắt đầu và chuyển sang trạng thái chờ trôi
+            timeDetection = currentMillis;
+            waitingForServo = true;
+
+            // Chờ cho vật đi qua hẳn cảm biến Start để tránh check lặp lại liên tục
+            // (Đoạn này tạm dừng code 1 chút cho vật trôi qua khỏi mắt đọc)
+            delay(500);
+        }
     }
 
-    // --- GIAI ĐOẠN 2: CHỜ VẬT TRÔI ĐẾN SERVO ---
-    if (isProcessing)
-    {
-        // Tính thời gian đã trôi qua
-        // if (currentMillis - detectionStartTime >= TIME_TO_SERVO)
-        // {
-            Serial.println(">> [ACTION] Vat da den vi tri GAT -> Kich hoat Servo");
+    // --- GIAI ĐOẠN 2: VẬN CHUYỂN VÀ XỬ LÝ SERVO ---
+    if (waitingForServo) {
+        // Tính thời gian vật trôi trên băng tải
+        if (currentMillis - timeDetection >= TIME_TO_TRAVEL) {
 
-            // Thực hiện gạt (Đoạn này dùng delay được vì hành động diễn ra nhanh)
-            myServo.write(ANGLE_PUSH);
-            delay(5000); // Chờ servo quay tới nơi
+            // Nếu là vật CAO -> Gạt
+            if (isTallObject) {
+                Serial.println(">> [ACTION] Servo KICH HOAT (Gat vat loi)");
+                myServo.write(ANGLE_PUSH);
+                delay(4000); // Thời gian gạt
+                myServo.write(ANGLE_IDLE); // Thu về
+            } else {
+                Serial.println(">> [PASS] Vat thap -> Servo dung im.");
+            }
 
-            myServo.write(ANGLE_IDLE);
-            delay(500); // Chờ servo thu về
-
-            // Reset trạng thái để đón vật tiếp theo
-            isProcessing = false;
-            Serial.println(">> [DONE] Hoan thanh. Cho vat tiep theo.\n");
-        // }
+            // Reset trạng thái, sẵn sàng đón vật mới
+            waitingForServo = false;
+            Serial.println(">> [DONE] Xong. Cho vat tiep theo.\n");
+        }
     }
 }
