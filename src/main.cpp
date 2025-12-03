@@ -41,7 +41,7 @@
 // ==== CẤU HÌNH CHÂN (PINS) ====
 const int PIN_SERVO = 9;
 const int PIN_SENSOR_HEIGHT = A0; // Cảm biến đo chiều cao (Đặt trên cao)
-const int PIN_SENSOR_START  = A1; // Cảm biến phát hiện vật (Đặt thấp/Bắt đầu)
+const int PIN_SENSOR_START = A1; // Cảm biến phát hiện vật (Đặt thấp/Bắt đầu)
 
 // ==== CẤU HÌNH THÔNG SỐ ====
 const int BAUD_RATE = 9600;
@@ -53,8 +53,8 @@ const int BAUD_RATE = 9600;
 const int THRESHOLD = 500;
 
 // Góc Servo
-const int ANGLE_PUSH = 70;  // Góc gạt
-const int ANGLE_IDLE = 0;   // Góc chờ
+const int ANGLE_PUSH = 70; // Góc gạt
+const int ANGLE_IDLE = 0; // Góc chờ
 
 // THỜI GIAN TRÔI (Rất quan trọng)
 // Đây là thời gian vật đi từ Cảm biến đến Servo.
@@ -75,22 +75,18 @@ void initSystem();
 bool isSensorBlocked(int pin);
 void processSystem();
 
-// ========================================================
-// MAIN
-// ========================================================
-void setup() {
+void setup()
+{
     initSystem();
 }
 
-void loop() {
+void loop()
+{
     processSystem();
 }
 
-// ========================================================
-// IMPLEMENTATION
-// ========================================================
-
-void initSystem() {
+void initSystem()
+{
     Serial.begin(BAUD_RATE);
     pinMode(PIN_SENSOR_HEIGHT, INPUT);
     pinMode(PIN_SENSOR_START, INPUT);
@@ -103,28 +99,35 @@ void initSystem() {
 }
 
 // Hàm kiểm tra cảm biến (Logic: Giá trị < 500 là CÓ VẬT)
-bool isSensorBlocked(int pin) {
+bool isSensorBlocked(int pin)
+{
     int val = analogRead(pin);
     return (val < THRESHOLD);
 }
 
-void processSystem() {
+void processSystem()
+{
     unsigned long currentMillis = millis();
 
     // --- GIAI ĐOẠN 1: PHÁT HIỆN VẬT (Dùng cảm biến Start) ---
     // Chỉ kiểm tra khi hệ thống đang rảnh (không trong thời gian chờ servo)
-    if (!waitingForServo) {
-        if (isSensorBlocked(PIN_SENSOR_START)) {
+    if (!waitingForServo)
+    {
+        if (isSensorBlocked(PIN_SENSOR_START))
+        {
             Serial.println(">> [1] Phat hien co vat di vao...");
 
             // Ngay khi phát hiện vật, kiểm tra ngay chiều cao
             // (Giả sử 2 cảm biến đặt thẳng hàng nhau theo phương thẳng đứng)
             delay(100); // Chờ 0.1s để vật đi vào ổn định hẳn dưới cảm biến
 
-            if (isSensorBlocked(PIN_SENSOR_HEIGHT)) {
+            if (isSensorBlocked(PIN_SENSOR_HEIGHT))
+            {
                 Serial.println("   -> Phat hien: VAT CAO (Khong dat yeu cau) -> Se gat bo.");
                 isTallObject = true;
-            } else {
+            }
+            else
+            {
                 Serial.println("   -> Phat hien: VAT THAP (Dat yeu cau) -> Cho qua.");
                 isTallObject = false;
             }
@@ -140,17 +143,21 @@ void processSystem() {
     }
 
     // --- GIAI ĐOẠN 2: VẬN CHUYỂN VÀ XỬ LÝ SERVO ---
-    if (waitingForServo) {
+    if (waitingForServo)
+    {
         // Tính thời gian vật trôi trên băng tải
-        if (currentMillis - timeDetection >= TIME_TO_TRAVEL) {
-
+        if (currentMillis - timeDetection >= TIME_TO_TRAVEL)
+        {
             // Nếu là vật CAO -> Gạt
-            if (isTallObject) {
+            if (isTallObject)
+            {
                 Serial.println(">> [ACTION] Servo KICH HOAT (Gat vat loi)");
                 myServo.write(ANGLE_PUSH);
                 delay(4000); // Thời gian gạt
                 myServo.write(ANGLE_IDLE); // Thu về
-            } else {
+            }
+            else
+            {
                 Serial.println(">> [PASS] Vat thap -> Servo dung im.");
             }
 
