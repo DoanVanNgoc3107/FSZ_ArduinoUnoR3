@@ -1,95 +1,76 @@
-/**
- * ---------------------------------------------------------------
- *  PROJECT: Product Classification System by Height (Arduino)
- *  AUTHOR : Doan Van Ngoc – 104317 – DTD64CL
- *  ADVISOR: MSc. Vu Thi Thu
- * ---------------------------------------------------------------
- *
- *  TEAM MEMBERS:
- *      • Phan Quy Luan   – 104304
- *      • Vu Quang Minh   – 104310
- *      • Vu Hai Thanh    – 104328
- *
- *  VERSION : 4.1.27.2
- *  DATE    : 20/11/2025
- *
- *  DESCRIPTION:
- *      Core implementation for an automated height-based product
- *      classification system using Arduino and embedded sensors.
- *      This file contains the essential logic, hardware mappings,
- *      and control flow of the complete system.
- *
- *  IMPORTANT NOTICE:
- *      DO NOT modify this source code unless you fully understand
- *      the execution flow and hardware interaction of the system.
- *
- *      If any unexpected behavior, malfunction, or bug is detected,
- *      please contact the maintainer:
- *          • Facebook: https://www.facebook.com/DoanVanNgoc317
- *          • Zalo : 0342204589
- *
- *  COPYRIGHT:
- *      Redistribution, re-uploading, or reuse of this source code
- *      in any form is strictly prohibited without explicit written
- *      permission from the original author — Doan Van Ngoc (104317).
- * ---------------------------------------------------------------
- */
-
 #include <Arduino.h>
 #include <Servo.h>
 
 // ==== CẤU HÌNH CHÂN (PINS) ====
-const int PIN_SERVO = 9;
-const int PIN_SENSOR_HEIGHT = A0; // Cảm biến đo chiều cao (Đặt trên cao)
-const int PIN_SENSOR_START = A1; // Cảm biến phát hiện vật (Đặt thấp/Bắt đầu)
+constexpr int PIN_SERVO = 9;
+constexpr int PIN_SENSOR_HEIGHT = A0; // Cảm biến đo chiều cao (Đặt trên cao)
+constexpr int PIN_SENSOR_START = A1; // Cảm biến phát hiện vật (Đặt thấp/Bắt đầu)
+constexpr int BUTTON_START = 5;
 
 // ==== CẤU HÌNH THÔNG SỐ ====
-const int BAUD_RATE = 9600;
+constexpr int BAUD_RATE = 9600;
 
 // Ngưỡng cảm biến hồng ngoại (Vật cản -> Giá trị thấp)
 // Bạn cần chỉnh biến trở trên cảm biến sao cho:
 // - Không vật: ~900-1000
 // - Có vật: < 100
-const int THRESHOLD = 500;
+constexpr int THRESHOLD = 500;
 
 // Góc Servo
-const int ANGLE_PUSH = 70; // Góc gạt
-const int ANGLE_IDLE = 0; // Góc chờ
+constexpr int ANGLE_PUSH = 65; // Góc gạt
+constexpr int ANGLE_IDLE = 0; // Góc chờ
 
-// THỜI GIAN TRÔI (Rất quan trọng)
-// Đây là thời gian vật đi từ Cảm biến đến Servo.
-// Nếu Servo gạt sớm quá -> Tăng số này lên.
-// Nếu Servo gạt trễ quá (vật đi qua rồi mới gạt) -> Giảm số này xuống.
+// Thời gian vật trôi trên băng tải từ cảm biến Start đến vị trí Servo (ms)
 const unsigned long TIME_TO_TRAVEL = 0; // 2000ms = 2 giây (Ví dụ)
 
-Servo myServo;
+Servo myServo; // Khởi tạo đối tượng Servo
 
 // Trạng thái hệ thống
-bool objectDetected = false;
-bool isTallObject = false;
-unsigned long timeDetection = 0;
-bool waitingForServo = false;
+bool isTurnOn = false;
+bool isTurnOff = false;
+bool objectDetected = false; // Biến này sử dụng để phát hiện vật thể
+bool isTallObject = false; // Biến này sử dụng để kiểm tra xem vật có đạt yêu cầu về chiều cao hay không?
+unsigned long timeDetection = 0; // Biến này sử dụng để lưu thời gian phát hiện vật
+bool waitingForServo = false; // Biến này sử dụng để chờ thời gian trôi đến khi kích hoạt servo
+bool btnLastState = HIGH; // Luu trang thai truoc cua nut bam
 
 // ==== FUNCTION PROTOTYPES ====
 void initSystem();
+
 bool isSensorBlocked(int pin);
+
 void processSystem();
 
-void setup()
-{
+void setup() {
     initSystem();
 }
 
-void loop()
-{
-    processSystem();
+void loop() {
+    int btnCurrentState = digitalRead(BUTTON_START);
+    if (btnCurrentState != btnLastState) {
+        delay(50); // Debounce
+        btnCurrentState = digitalRead(BUTTON_START);
+        if (btnCurrentState != btnLastState) {
+            btnLastState = btnCurrentState;
+            if (btnCurrentState == LOW) {
+                isTurnOn = !isTurnOn;
+            }
+        }
+    }
+    if (isTurnOn) {
+        processSystem();
+    } else {
+        Serial.println("--- SYSTEM OFF ---");
+        delay(1000); // Giảm tần số in khi tắt hệ thống
+    }
 }
 
-void initSystem()
-{
+void initSystem() {
     Serial.begin(BAUD_RATE);
     pinMode(PIN_SENSOR_HEIGHT, INPUT);
     pinMode(PIN_SENSOR_START, INPUT);
+
+    pinMode(BUTTON_START, INPUT_PULLUP);
 
     myServo.attach(PIN_SERVO);
     myServo.write(ANGLE_IDLE);
@@ -98,37 +79,26 @@ void initSystem()
     Serial.println("Waiting for product...");
 }
 
-// Hàm kiểm tra cảm biến (Logic: Giá trị < 500 là CÓ VẬT)
-bool isSensorBlocked(int pin)
-{
-    int val = analogRead(pin);
+bool isSensorBlocked(const int pin) {
+    const int val = analogRead(pin);
     return (val < THRESHOLD);
 }
 
-void processSystem()
-{
-    unsigned long currentMillis = millis();
+void processSystem() {
+    const unsigned long currentMillis = millis();
 
-    // --- GIAI ĐOẠN 1: PHÁT HIỆN VẬT (Dùng cảm biến Start) ---
-    // Chỉ kiểm tra khi hệ thống đang rảnh (không trong thời gian chờ servo)
-    if (!waitingForServo)
-    {
-        if (isSensorBlocked(PIN_SENSOR_START))
-        {
-            Serial.println(">> [1] Phat hien co vat di vao...");
+    if (!waitingForServo) {
+        if (isSensorBlocked(PIN_SENSOR_START)) {
+            Serial.println("[DETECTED] Product detected!");
 
             // Ngay khi phát hiện vật, kiểm tra ngay chiều cao
-            // (Giả sử 2 cảm biến đặt thẳng hàng nhau theo phương thẳng đứng)
             delay(100); // Chờ 0.1s để vật đi vào ổn định hẳn dưới cảm biến
 
-            if (isSensorBlocked(PIN_SENSOR_HEIGHT))
-            {
-                Serial.println("   -> Phat hien: VAT CAO (Khong dat yeu cau) -> Se gat bo.");
+            if (isSensorBlocked(PIN_SENSOR_HEIGHT)) {
+                Serial.println("[ITEMS] :  GOOD!\n");
                 isTallObject = true;
-            }
-            else
-            {
-                Serial.println("   -> Phat hien: VAT THAP (Dat yeu cau) -> Cho qua.");
+            } else {
+                Serial.println("[ITEMS] :  BAD!\n");
                 isTallObject = false;
             }
 
@@ -138,32 +108,27 @@ void processSystem()
 
             // Chờ cho vật đi qua hẳn cảm biến Start để tránh check lặp lại liên tục
             // (Đoạn này tạm dừng code 1 chút cho vật trôi qua khỏi mắt đọc)
-            delay(500);
+            delay(1000);
         }
     }
 
     // --- GIAI ĐOẠN 2: VẬN CHUYỂN VÀ XỬ LÝ SERVO ---
-    if (waitingForServo)
-    {
+    if (waitingForServo) {
         // Tính thời gian vật trôi trên băng tải
-        if (currentMillis - timeDetection >= TIME_TO_TRAVEL)
-        {
+        if (currentMillis - timeDetection >= TIME_TO_TRAVEL) {
             // Nếu là vật CAO -> Gạt
-            if (isTallObject)
-            {
-                Serial.println(">> [ACTION] Servo KICH HOAT (Gat vat loi)");
+            if (isTallObject) {
+                Serial.println("[ACTION] - ");
                 myServo.write(ANGLE_PUSH);
-                delay(4000); // Thời gian gạt
+                delay(200); // Thời gian gạt
                 myServo.write(ANGLE_IDLE); // Thu về
-            }
-            else
-            {
-                Serial.println(">> [PASS] Vat thap -> Servo dung im.");
+            } else {
+                Serial.println("[PASS]");
             }
 
             // Reset trạng thái, sẵn sàng đón vật mới
             waitingForServo = false;
-            Serial.println(">> [DONE] Xong. Cho vat tiep theo.\n");
+            Serial.println(">> [DONE]");
         }
     }
 }
