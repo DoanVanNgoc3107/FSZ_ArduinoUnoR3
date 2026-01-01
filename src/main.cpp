@@ -21,7 +21,7 @@ constexpr int ANGLE_PUSH = 65; // Góc gạt
 constexpr int ANGLE_IDLE = 0; // Góc chờ
 
 // Thời gian vật trôi trên băng tải từ cảm biến Start đến vị trí Servo (ms)
-const unsigned long TIME_TO_TRAVEL = 0; // 2000ms = 2 giây (Ví dụ)
+constexpr unsigned long TIME_TO_TRAVEL = 0;
 
 Servo myServo; // Khởi tạo đối tượng Servo
 
@@ -65,6 +65,9 @@ void loop() {
     }
 }
 
+/**
+ * Khởi tạo hệ thống
+ */
 void initSystem() {
     Serial.begin(BAUD_RATE);
     pinMode(PIN_SENSOR_HEIGHT, INPUT);
@@ -79,6 +82,10 @@ void initSystem() {
     Serial.println("Waiting for product...");
 }
 
+/**
+ * @param pin Chân cảm biến
+ * @return
+ */
 bool isSensorBlocked(const int pin) {
     const int val = analogRead(pin);
     return (val < THRESHOLD);
