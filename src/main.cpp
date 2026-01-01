@@ -95,10 +95,10 @@ void processSystem() {
             delay(100); // Chờ 0.1s để vật đi vào ổn định hẳn dưới cảm biến
 
             if (isSensorBlocked(PIN_SENSOR_HEIGHT)) {
-                Serial.println("[ITEMS] :  GOOD!\n");
+                Serial.println("[ITEMS] :  BAD!\n");
                 isTallObject = true;
             } else {
-                Serial.println("[ITEMS] :  BAD!\n");
+                Serial.println("[ITEMS] :  GOOD!\n");
                 isTallObject = false;
             }
 
