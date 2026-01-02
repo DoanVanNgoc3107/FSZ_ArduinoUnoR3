@@ -17,30 +17,39 @@ namespace Sensor {
     class SensorConfig {
         int pin = 0;
         SensorType type = TYPE_HEIGHT;
+        int threshold = 500; // Ngưỡng mặc định
+        bool detected = false;
 
     public:
         // Constructor
+        SensorConfig(int pin, SensorType type, int threshold);
+
+        // Hàm tạo không tham số ngưỡng
         SensorConfig(int pin, SensorType type);
 
         // Getter: Lấy chân cảm biến (Inline - tốt cho hiệu năng)
-        int getPin() const {
-            return pin;
-        }
+        int getPin() ;
 
         // Getter: Lấy loại cảm biến (Inline)
-        SensorType getType() const {
-            return type;
-        }
+        SensorType getType() ;
 
         // Lấy giá trị cảm biến
-        int getValue() const;
+        int getValue() ;
+
+        // Lấy ngưỡng cảm biến
+        int getThreshold() ;
 
         // Setter
         void setPin(int newPin);
+
+        // Đặt loại cảm biến
         void setType(SensorType newType);
 
-        // Helper
-        bool isValueValid(int value) const;
+        // Kiểm tra cảm biến có được phát hiện hay không
+        bool isDetected() ;
+
+        // Kiểm tra giá trị có hợp lệ khôngs
+        bool isValueValid(int value) ;
     };
 } // namespace Sensor
 

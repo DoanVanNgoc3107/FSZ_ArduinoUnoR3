@@ -3,8 +3,8 @@
 //
 
 #include "ServoConfig.h"
-#include <Arduino.h>
 #include <Servo.h>
+#include <Arduino.h>
 
 namespace ServoConfiguration {
     /**
@@ -16,27 +16,33 @@ namespace ServoConfiguration {
      * @brief Khởi tạo cấu hình servo và đặt servo khởi động servo (Test servo) và đưa về góc chờ
      * @return void
      */
-    ServoConfig::ServoConfig(int const pin,int const angleIdle, int const anglePush, int const delayTime)
-            : pin(pin), angleIdle(angleIdle), anglePush(anglePush), delayTime(delayTime) {
-        servo.attach(pin);     // Gắn servo vào chân điều khiển
-        servo.write(anglePush); // Chạy servo đến góc loại bỏ vật thể không đạt
-        delay(delayTime);      // Chờ servo di chuyển
-        servo.write(angleIdle);// Đặt servo về góc ban đầu
+    ServoConfig::ServoConfig(int const pin, int const angleIdle, int const anglePush, unsigned long const delayTime)
+        : pin(pin), angleIdle(angleIdle), anglePush(anglePush), delayTime(delayTime) {
+        // servo.attach(pin); // Gắn servo vào chân điều khiển - REMOVED: Should be in init()
     }
 
     /**
      * Hàm lấy chân điều khiển servo
      * @return int Chân điều khiển servo
      */
-    int ServoConfig::getPin() const {
+    int ServoConfig::getPin()  {
         return pin;
+    }
+
+    /**
+     * Hàm khởi tạo servo, đưa servo về góc chờ
+     */
+    void ServoConfig::init() {
+        servo.attach(pin);          // Gắn chân servo
+        goPush();                  // Test servo
+        goIdle();                  // Đưa về góc chờ
     }
 
     /**
      * Hàm lấy góc ban đầu của servo (khi không có vật thể hoặc vật thể đạt)
      * @return int Góc ban đầu của servo
      */
-    int ServoConfig::getAngleIdle() const {
+    int ServoConfig::getAngleIdle()  {
         return angleIdle;
     }
 
@@ -44,7 +50,7 @@ namespace ServoConfiguration {
      * Hàm lấy góc để loại bỏ vật thể không đạt
      * @return int Góc để loại bỏ vật thể không đạt
      */
-    int ServoConfig::getAnglePush() const {
+    int ServoConfig::getAnglePush()  {
         return anglePush;
     }
 
@@ -52,7 +58,7 @@ namespace ServoConfiguration {
      * Hàm lấy thời gian delay khi servo hoạt động
      * @return int Thời gian delay khi servo hoạt động
      */
-    int ServoConfig::getDelayTime() const {
+    unsigned long ServoConfig::getDelayTime()  {
         return delayTime;
     }
 
@@ -62,13 +68,14 @@ namespace ServoConfiguration {
      */
     void ServoConfig::setPin(int const newPin) {
         pin = newPin;
+        servo.attach(pin);
     }
 
     /**
      * Hàm đặt góc ban đầu của servo
      * @param newAngleIdle Góc ban đầu của servo
      */
-    void ServoConfig::setAngleIdle(int const newAngleIdle) {
+    void ServoConfig::setAngleIdle(int  newAngleIdle) {
         angleIdle = newAngleIdle;
     }
 
@@ -76,7 +83,7 @@ namespace ServoConfiguration {
      * Hàm đặt góc để loại bỏ vật thể không đạt
      * @param newAnglePush Góc để loại bỏ vật thể không đạt
      */
-    void ServoConfig::setAnglePush(int const newAnglePush) {
+    void ServoConfig::setAnglePush(int newAnglePush) {
         anglePush = newAnglePush;
     }
 
@@ -85,13 +92,33 @@ namespace ServoConfiguration {
      */
     void ServoConfig::goIdle() {
         servo.write(angleIdle);
+        delay(delayTime); // Chờ servo di chuyển
+    }
+
+    /**
+     * Hàm di chuyển servo đến góc gạt vật thể
+     */
+    void ServoConfig::goPush() {
+        servo.write(anglePush);
+        delay(delayTime); // Chờ servo di chuyển
+    }
+
+    /**
+     * Hàm đặt thời gian delay khi servo hoạt động
+     * Khi được gọi, hàm sẽ tạm dừng thực thi trong khoảng thời gian đã định trước khi tiếp tục thực thi các lệnh tiếp theo.
+     */
+    void ServoConfig::delayAction() {
+        unsigned long currentTime = millis();
+        while (millis() - currentTime < delayTime) {
+            // Chờ đợi
+        }
     }
 
     /**
      * Hàm đặt thời gian delay khi servo hoạt động
      * @param newDelayTime Thời gian delay khi servo hoạt động
      */
-    void ServoConfig::setDelayTime(int const newDelayTime) {
+    void ServoConfig::setDelayTime(unsigned long const newDelayTime) {
         delayTime = newDelayTime;
     }
 }

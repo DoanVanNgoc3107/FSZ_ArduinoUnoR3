@@ -20,10 +20,10 @@ namespace Button {
         Btn(int pin, BtnType type);
 
         // Getter
-        int getPin() const;
-        BtnType getType() const;
-        int getLastState() const;
-        int getCurrentState() const;
+        int getPin() ;
+        BtnType getType() ;
+        int getLastState() ;
+        int getCurrentState() ;
 
         // Setter
         void setPin(int newPin);
