@@ -9,19 +9,19 @@
 namespace ServoConfiguration {
     class ServoConfig {
         int pin = 0;        // Chân điều khiển servo
-        int angleHome = 0;  // Góc ban đầu của servo
-        int angleBad = 0;   // Góc để loại bỏ vật thể không đạt
+        int angleIdle = 0;  // Góc ban đầu của servo
+        int anglePush = 0;   // Góc để loại bỏ vật thể không đạt
         Servo servo;        // Đối tượng servo điều khiển thực tế
         int delayTime = 200; // Thời gian delay khi servo hoạt động
     public:
-        ServoConfig(int pin, int angleHome, int angleBad, int delayTime = 200);
+        ServoConfig(int pin, int angleIdle, int anglePush, int delayTime = 200);
 
         // Getters
         int getPin() const;
 
-        int getAngleHome() const;
+        int getAngleIdle() const;
 
-        int getAngleBad() const;
+        int getAnglePush() const;
 
         int getDelayTime() const;
 
@@ -30,11 +30,11 @@ namespace ServoConfiguration {
 
         void setDelayTime(int newDelayTime);
 
-        void setAngleHome(int newAngleHome);
+        void setAngleIdle(int newAngleIdle);
 
-        void setAngleBad(int newAngleBad);
+        void setAnglePush(int newAnglePush);
 
-        void goHome();
+        void goIdle();
     };
 }
 

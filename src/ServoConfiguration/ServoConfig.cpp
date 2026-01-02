@@ -10,18 +10,18 @@ namespace ServoConfiguration {
     /**
      * Khởi tạo cấu hình servo
      * @param pin Chân điều khiển servo
-     * @param angleHome Góc ban đầu của servo
-     * @param angleBad Góc để loại bỏ vật thể không đạt
+     * @param angleIdle Góc chờ của servo
+     * @param anglePush Góc gạt bỏ vật thể không đạt
      * @param delayTime Thời gian delay khi servo hoạt động
-     * @brief Khởi tạo cấu hình servo và đặt servo khởi động servo (Test servo) và đưa về góc ban đầu
+     * @brief Khởi tạo cấu hình servo và đặt servo khởi động servo (Test servo) và đưa về góc chờ
      * @return void
      */
-    ServoConfig::ServoConfig(int const pin,int const angleHome, int const angleBad, int const delayTime)
-            : pin(pin), angleHome(angleHome), angleBad(angleBad), delayTime(delayTime) {
+    ServoConfig::ServoConfig(int const pin,int const angleIdle, int const anglePush, int const delayTime)
+            : pin(pin), angleIdle(angleIdle), anglePush(anglePush), delayTime(delayTime) {
         servo.attach(pin);     // Gắn servo vào chân điều khiển
-        servo.write(angleBad); // Chạy servo đến góc loại bỏ vật thể không đạt
+        servo.write(anglePush); // Chạy servo đến góc loại bỏ vật thể không đạt
         delay(delayTime);      // Chờ servo di chuyển
-        servo.write(angleHome);// Đặt servo về góc ban đầu
+        servo.write(angleIdle);// Đặt servo về góc ban đầu
     }
 
     /**
@@ -36,16 +36,16 @@ namespace ServoConfiguration {
      * Hàm lấy góc ban đầu của servo (khi không có vật thể hoặc vật thể đạt)
      * @return int Góc ban đầu của servo
      */
-    int ServoConfig::getAngleHome() const {
-        return angleHome;
+    int ServoConfig::getAngleIdle() const {
+        return angleIdle;
     }
 
     /**
      * Hàm lấy góc để loại bỏ vật thể không đạt
      * @return int Góc để loại bỏ vật thể không đạt
      */
-    int ServoConfig::getAngleBad() const {
-        return angleBad;
+    int ServoConfig::getAnglePush() const {
+        return anglePush;
     }
 
     /**
@@ -66,25 +66,25 @@ namespace ServoConfiguration {
 
     /**
      * Hàm đặt góc ban đầu của servo
-     * @param newAngleHome Góc ban đầu của servo
+     * @param newAngleIdle Góc ban đầu của servo
      */
-    void ServoConfig::setAngleHome(int const newAngleHome) {
-        angleHome = newAngleHome;
+    void ServoConfig::setAngleIdle(int const newAngleIdle) {
+        angleIdle = newAngleIdle;
     }
 
     /**
      * Hàm đặt góc để loại bỏ vật thể không đạt
-     * @param newAngleBad Góc để loại bỏ vật thể không đạt
+     * @param newAnglePush Góc để loại bỏ vật thể không đạt
      */
-    void ServoConfig::setAngleBad(int const newAngleBad) {
-        angleBad = newAngleBad;
+    void ServoConfig::setAnglePush(int const newAnglePush) {
+        anglePush = newAnglePush;
     }
 
     /**
      * Hàm di chuyển servo về góc ban đầu
      */
-    void ServoConfig::goHome() {
-        servo.write(angleHome);
+    void ServoConfig::goIdle() {
+        servo.write(angleIdle);
     }
 
     /**
